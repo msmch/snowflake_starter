@@ -4,20 +4,24 @@ use role accountadmin;
 create 3 warehouses, let's use XS only with all the default values like:
 - auto-scale, 
 - standard scaling policy, 
-- 600 seconds auto-suspend mode
 - auto-resume mode
+
+Reduce auto_suspend time to one minute to avoid idle warehouse cost.
 */
 create warehouse xs_backend
 with 
-warehouse_size = 'XSMALL';
+warehouse_size = 'XSMALL'
+auto_suspend = 60;
 
 create warehouse xs_analytics
 with 
-warehouse_size = 'XSMALL';
+warehouse_size = 'XSMALL'
+auto_suspend = 60;
 
 create warehouse xs_dev
 with 
-warehouse_size = 'XSMALL';
+warehouse_size = 'XSMALL'
+auto_suspend = 60;
 
 
 /* 
