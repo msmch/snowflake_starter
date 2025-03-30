@@ -1,2 +1,4 @@
+.venv/
+
 data/
 private_key.p8
