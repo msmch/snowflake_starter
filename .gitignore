@@ -1,4 +1,8 @@
 .venv/
+.env
+terraform/.terraform/providers
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
 
 data/
 private_key.p8
