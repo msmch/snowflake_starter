@@ -1,7 +1,6 @@
 def use_db_schema(db_name, schema) -> str:
     sql = f'use database {db_name};\n'
     sql += f'use schema {schema};\n\n\n'
-
     return sql
 
 
@@ -11,7 +10,6 @@ def column_details(row: str) -> list:
     """
     items = row.strip().split(' ')
     items = [i.replace(',', '') for i in items]
-
     return items[:2]
 
 
@@ -19,7 +17,6 @@ def starting_row(rows: list) -> int:
     for i, r in enumerate(rows):
         if 'create table' in r:
             return i
-    
     return -1
 
 
@@ -28,14 +25,12 @@ def table_name(row: str) -> str:
     table_name = table_name.strip()
     if table_name.endswith('('):
         table_name = table_name[:-1]
-    
     return table_name
 
 
 def get_columns(rows: list, first_row: int) -> list:
     columns = [column_details(row) for row in rows[first_row+1:-1]]
     columns = [c[0] for c in columns]
-
     return columns
 
 
