@@ -19,7 +19,6 @@ variable "SNOWFLAKE_STARTER_STORAGE_ACC_CONT" {
   description = "Azure storage account container name."
 }
 
-
 variable "SNOWFLAKE_STARTER_LOCAL_FILES_PATH" {
   type        = string
   description = "Local path to the files folder."
