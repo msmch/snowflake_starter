@@ -2,20 +2,24 @@ import os
 import re
 import logging
 
+import pandas as pd
+
 import sys
 sys.path.append('../')
-from .builders import PipeBuilder, MergeBuilder, TaskBuilder, StreamBuilder
-from .file_operations import read_file, write_to_file
-from .mapping import BASE_DIR, TABLES_MAPPING
+from builders import (
+    PipeBuilder, MergeBuilder, TaskBuilder, StreamBuilder,
+    TableBuilder, StageBuilder
+)
+from file_operations import read_file, write_to_file
+from mapping import BASE_DIR, TABLES_MAPPING
 
 
 logging.basicConfig(
-    level = logging.INFO,
-    format = "%(asctime)s - %(name)s: %(message)s",
+    level = logging.DEBUG,
+    format = "%(asctime)s - %(name)s %(levelname)s: %(message)s",
     datefmt = "%Y-%m-%d %H:%M:%S",
     force = True
 )
-logger = logging.getLogger(__name__)
 
 
 # get file names
@@ -28,20 +32,40 @@ class Orchestrator:
     TASKS_DIR = os.path.join(BASE_DIR, 'tasks/') 
     TABLES_MAPPING = TABLES_MAPPING
 
-    def __init__(self, file_name: str):
+    def __init__(self, data_path: str, file_name: str):
+        self.logger = logging.getLogger(__name__)
+        self.data_path = data_path
         self.file_name = file_name
-        self.staging_tbl = file_name.split('.')[0]
+        self.full_path = os.path.join(data_path, file_name)
+        self.staging_tbl = f"raw_{file_name.split('.')[0]}"
         self.core_name  = self.staging_tbl[4:]
         self.transformed_tbl = self.TABLES_MAPPING.get(self.staging_tbl)
+        self.build_staging_table()
 
+    def build_staging_table(self):
+        df = pd.read_csv(self.full_path)
+        tbl_builder = TableBuilder(df)
+        table_ddl = tbl_builder.build_statment(self.staging_tbl)
+        tbl_status = write_to_file(
+            fpath = f'../warehouse/tables/staging/{self.staging_tbl}.sql',
+            content = table_ddl
+        )
+        return tbl_status
+
+    def build_stage(self):
+        stg_builder = StageBuilder()
+        stage_ddl = stg_builder.build_statement(self.core_name)
+        stg_status = write_to_file(
+            fpath = f'../warehouse/stages/stg_{self.core_name}.sql',
+            content = stage_ddl
+        )
+        return stg_status
 
     def generate_pipe(self) -> str:
-        fpath = self.STAGING_DIR + self.file_name
+        fpath = self.STAGING_DIR + self.staging_tbl + ".sql"
         builder = PipeBuilder()
         sql = builder.build_statement(fpath)
-        
         return sql
-    
 
     def generate_transformed_tables(self) -> dict:
         transformed_schema = self.TRANSFORMED_DIR.split('/')[-2]
@@ -60,26 +84,23 @@ class Orchestrator:
                 sql
             )
             statements[dest] = sql
-
         return statements
 
     
     def generate_stream(self) -> str:
         stm_builder = StreamBuilder()
         sql = stm_builder.build_statement(self.staging_tbl)
-
         return sql
 
 
     def generate_merge(self) -> str:
         m_builder = MergeBuilder()
-        m_builder.analyze_src_file(self.STAGING_DIR + self.file_name)
+        m_builder.analyze_src_file(self.STAGING_DIR + self.core_name + "sql")
 
         sql = m_builder.build_statement(
             self.staging_tbl,
             self.transformed_tbl
         )
-
         return sql
 
 
@@ -109,7 +130,6 @@ class Orchestrator:
         sql = main_task_sql + stream_task_sql
         sql += f'alter task {stream_task_name} resume;\n'
         sql += f'alter task {main_task_name} resume;\n'
-
         return sql
 
     
@@ -123,7 +143,7 @@ class Orchestrator:
             pipe = self.generate_pipe()
             fpath = self.PIPES_DIR + f'p_{self.core_name}.sql'
             write_status = write_to_file(fpath, pipe)
-            logger.info(write_status)
+            self.logger.info(write_status)
         except Exception as e:
             exec_log['status'] = 500
             exec_log['errors']['pipe'] = e
@@ -132,7 +152,7 @@ class Orchestrator:
             stream = self.generate_stream()
             fpath = self.STREAMS_DIR + f'stm_{self.core_name}.sql'
             write_status = write_to_file(fpath, stream)
-            logger.info(write_status)
+            self.logger.info(write_status)
         except Exception as e:
             exec_log['status'] = 500
             exec_log['errors']['stream']  = e
@@ -142,22 +162,21 @@ class Orchestrator:
             for tbl_name, sql in transformed_tables.items():
                 fpath = self.TRANSFORMED_DIR + f'{tbl_name}.sql'
                 write_status = write_to_file(fpath, sql)
-                logger.info(write_status)
+                self.logger.info(write_status)
         except Exception as e:
             exec_log['status'] = 500
             exec_log['errors']['transformed_tables']  = e
 
         if self.transformed_tbl is None:
-            logger.info(f'Skipping merge generation. Table {self.staging_tbl} not included in tables mapping.')
+            self.logger.info(f'Skipping merge generation. Table {self.staging_tbl} not included in tables mapping.')
             return exec_log
 
         try:
             merge_task = self.generate_merge_task()
             fpath = self.TASKS_DIR + f'tsk_merge_{self.core_name}.sql'
             write_status = write_to_file(fpath, merge_task)
-            logger.info(write_status)
+            self.logger.info(write_status)
         except Exception as e:
             exec_log['status'] = 500
             exec_log['errors']['merge_task']  = e
-
         return exec_log
