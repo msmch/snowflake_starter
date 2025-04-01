@@ -1,8 +1,8 @@
-import os
-import re
+import functools
 import logging
-
+from os import path
 import pandas as pd
+import re
 
 import sys
 sys.path.append('../')
@@ -20,90 +20,96 @@ logging.basicConfig(
     datefmt = "%Y-%m-%d %H:%M:%S",
     force = True
 )
+logger = logging.getLogger(__name__)
+
+
+def log_output(func):
+    """
+    Decorator that logs the output of a function at the INFO level using self.logger.
+    Assumes the function is a method of a class with a 'logger' attribute.
+    """
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        result = func(self, *args, **kwargs)
+        # Use self.logger from the instance
+        self.logger.info(f"Function '{func.__name__}' output: {result}")
+        return result
+    return wrapper
 
 
 # get file names
 class Orchestrator:
     BASE_DIR = BASE_DIR
-    STAGING_DIR = os.path.join(BASE_DIR, 'tables/staging/')
-    TRANSFORMED_DIR = os.path.join(BASE_DIR, 'tables/transformed/')
-    PIPES_DIR =  os.path.join(BASE_DIR, 'pipes/')
-    STREAMS_DIR = os.path.join(BASE_DIR, 'streams/') 
-    TASKS_DIR = os.path.join(BASE_DIR, 'tasks/') 
+    STAGING_DIR = path.join(BASE_DIR, "tables/staging/")
+    STAGES_DIR = path.join(BASE_DIR, "stages/")
+    TRANSFORMED_DIR = path.join(BASE_DIR, "tables/transformed/")
+    PIPES_DIR =  path.join(BASE_DIR, "pipes/")
+    STREAMS_DIR = path.join(BASE_DIR, "streams/") 
+    TASKS_DIR = path.join(BASE_DIR, "tasks/") 
     TABLES_MAPPING = TABLES_MAPPING
 
     def __init__(self, data_path: str, file_name: str):
         self.logger = logging.getLogger(__name__)
         self.data_path = data_path
         self.file_name = file_name
-        self.full_path = os.path.join(data_path, file_name)
+        self.full_path = path.join(data_path, file_name)
         self.staging_tbl = f"raw_{file_name.split('.')[0]}"
         self.core_name  = self.staging_tbl[4:]
         self.transformed_tbl = self.TABLES_MAPPING.get(self.staging_tbl)
-        self.build_staging_table()
 
-    def build_staging_table(self):
+    def generate_staging_table(self) -> str:
         df = pd.read_csv(self.full_path)
         tbl_builder = TableBuilder(df)
-        table_ddl = tbl_builder.build_statment(self.staging_tbl)
-        tbl_status = write_to_file(
-            fpath = f'../warehouse/tables/staging/{self.staging_tbl}.sql',
-            content = table_ddl
-        )
-        return tbl_status
+        sql = tbl_builder.build_statment(self.staging_tbl)
+        return sql
 
-    def build_stage(self):
+    def generate_stage(self) -> str:
         stg_builder = StageBuilder()
-        stage_ddl = stg_builder.build_statement(self.core_name)
-        stg_status = write_to_file(
-            fpath = f'../warehouse/stages/stg_{self.core_name}.sql',
-            content = stage_ddl
-        )
-        return stg_status
+        sql = stg_builder.build_statement(self.core_name)
+        return sql
 
     def generate_pipe(self) -> str:
-        fpath = self.STAGING_DIR + self.staging_tbl + ".sql"
+        fpath = path.join(self.STAGING_DIR, f"{self.staging_tbl}.sql")
         builder = PipeBuilder()
         sql = builder.build_statement(fpath)
         return sql
 
-    def generate_transformed_tables(self) -> dict:
+    def generate_transformed_table(self) -> str|None:
         transformed_schema = self.TRANSFORMED_DIR.split('/')[-2]
-        statements = {}
-        for src, dest in self.TABLES_MAPPING.items():
-            rows = read_file(self.STAGING_DIR + f'{src}.sql')
-            sql = ''.join(rows)
-            sql = re.sub(
-                'use schema .*;', 
-                f'use schema {transformed_schema};', 
-                sql
-            )
-            sql = re.sub(
-                f'create table {src}', 
-                f'create table {dest}', 
-                sql
-            )
-            statements[dest] = sql
-        return statements
-
+        if self.transformed_tbl is None:
+            self.logger.info(f"Staging table {self.staging_tbl} is not included in the transformed schema mapping.")
+            return None
+        rows = read_file(path.join(self.STAGING_DIR, f'{self.staging_tbl}.sql'))
+        sql = ''.join(rows)
+        sql = re.sub(
+            'use schema .*;', 
+            f'use schema {transformed_schema};', 
+            sql
+        )
+        sql = re.sub(
+            f'create table {self.staging_tbl}', 
+            f'create table {self.transformed_tbl}', 
+            sql
+        )
+        return sql
     
     def generate_stream(self) -> str:
         stm_builder = StreamBuilder()
         sql = stm_builder.build_statement(self.staging_tbl)
         return sql
-
-
+    
     def generate_merge(self) -> str:
         m_builder = MergeBuilder()
-        m_builder.analyze_src_file(self.STAGING_DIR + self.core_name + "sql")
+        m_builder.analyze_staging_table(
+            path.join(self.STAGING_DIR, f"{self.staging_tbl}.sql")
+        )
 
         sql = m_builder.build_statement(
             self.staging_tbl,
             self.transformed_tbl
         )
         return sql
-
-
+    
     def generate_merge_task(self) -> str:
         merge_sql = self.generate_merge()
         stream_name = f'stm_{self.core_name}'
@@ -131,52 +137,53 @@ class Orchestrator:
         sql += f'alter task {stream_task_name} resume;\n'
         sql += f'alter task {main_task_name} resume;\n'
         return sql
-
     
+    def generate_filepath(self, method: str) -> str|None:
+        key = method.replace("generate_", "")
+        paths = {
+            "staging_table": path.join(self.STAGING_DIR, f"{self.staging_tbl}.sql"),
+            "stage": path.join(self.STAGES_DIR, f"stg_{self.core_name}.sql"),
+            "pipe": path.join(self.PIPES_DIR, f"p_{self.core_name}.sql"),
+            "stream": path.join(self.STREAMS_DIR, f"stm_{self.core_name}.sql"),
+            "merge_task": path.join(self.TASKS_DIR, f"tsk_merge_{self.core_name}.sql"),
+            "transformed_table": path.join(self.TRANSFORMED_DIR, f"{self.transformed_tbl}.sql")
+        }
+        return paths.get(key)
+    
+    @log_output
+    def script_to_file(self, fpath: str, sql: str) -> str:
+        return write_to_file(fpath, sql)
+
     def orchestrate(self) -> dict:
         exec_log = {
             'status': 200,
             'errors': {}
         }
         
+        # List of tasks with their method names, output directories, and file name patterns
+        tasks = [
+            "generate_staging_table",
+            "generate_stage",
+            "generate_pipe",
+            "generate_stream",
+            "generate_merge_task",
+            "generate_transformed_table"
+        ]
         try:
-            pipe = self.generate_pipe()
-            fpath = self.PIPES_DIR + f'p_{self.core_name}.sql'
-            write_status = write_to_file(fpath, pipe)
-            self.logger.info(write_status)
-        except Exception as e:
-            exec_log['status'] = 500
-            exec_log['errors']['pipe'] = e
+            for task in tasks:
+                # Skip merge task if transformed_tbl is None
+                if task == 'merge_task' and self.transformed_tbl is None:
+                    self.logger.info(f'Skipping merge generation. Table {self.staging_tbl} not included in tables mapping.')
+                    continue
+
+                sql = getattr(self, task)()
+                if sql is None:
+                    self.logger.warning(f"{task} produced no SQL statement for file {self.file_name}.")
+                    continue
+                self.script_to_file(self.generate_filepath(task), sql)
         
-        try:
-            stream = self.generate_stream()
-            fpath = self.STREAMS_DIR + f'stm_{self.core_name}.sql'
-            write_status = write_to_file(fpath, stream)
-            self.logger.info(write_status)
         except Exception as e:
             exec_log['status'] = 500
-            exec_log['errors']['stream']  = e
-
-        try:
-            transformed_tables = self.generate_transformed_tables()
-            for tbl_name, sql in transformed_tables.items():
-                fpath = self.TRANSFORMED_DIR + f'{tbl_name}.sql'
-                write_status = write_to_file(fpath, sql)
-                self.logger.info(write_status)
-        except Exception as e:
-            exec_log['status'] = 500
-            exec_log['errors']['transformed_tables']  = e
-
-        if self.transformed_tbl is None:
-            self.logger.info(f'Skipping merge generation. Table {self.staging_tbl} not included in tables mapping.')
-            return exec_log
-
-        try:
-            merge_task = self.generate_merge_task()
-            fpath = self.TASKS_DIR + f'tsk_merge_{self.core_name}.sql'
-            write_status = write_to_file(fpath, merge_task)
-            self.logger.info(write_status)
-        except Exception as e:
-            exec_log['status'] = 500
-            exec_log['errors']['merge_task']  = e
+            exec_log['errors'][task] = e
+    
         return exec_log
