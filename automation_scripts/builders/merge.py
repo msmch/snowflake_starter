@@ -26,7 +26,7 @@ class MergeBuilder(BaseBuilder):
         self.columns = None
         self.id_col = None
 
-    def analyze_src_file(self, fpath: str) -> None:
+    def analyze_staging_table(self, fpath: str) -> None:
         """
         Variable fpath is a file path to the staging table that will be used as a source for synch with the transformed table.
         We want the latest and unique data for each primary key from the staging table. Based on that Snowflake will merge data into 
