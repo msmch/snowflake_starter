@@ -1,6 +1,4 @@
 import os
-import json
-
 import sys
 sys.path.append('../')
 from automation_scripts.orchestrator import Orchestrator
@@ -8,18 +6,21 @@ from automation_scripts.file_operations import get_files
 from automation_scripts.mapping import BASE_DIR
 
 
+def get_data_path() -> str:
+    return os.getenv("TF_VAR_SNOWFLAKE_STARTER_LOCAL_FILES_PATH")
+
+
 def handler() -> str:
-    tables = get_files(os.path.join(BASE_DIR, 'tables/staging/'))
-    for table in tables:
-        orc = Orchestrator(table)
+    main_log = {"status": 200}
+
+    data_path = get_data_path()
+    for file in get_files(data_path):
+        orc = Orchestrator(data_path, file)
         exec_log = orc.orchestrate()
-
-        if exec_log['status'] == 200:
-            resp = f'All files generated successfully. {exec_log}'
-        else:
-            resp = f'Executed with errors. {exec_log}'
-
-    return resp
+        main_log[file] = exec_log
+        if exec_log['status'] != 200:
+            main_log["status"] = 500
+    return f'Files generation completed with status: {main_log["status"]}. {main_log}'
 
 
 if __name__ == '__main__':
