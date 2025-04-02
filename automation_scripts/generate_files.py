@@ -20,7 +20,7 @@ def handler() -> str:
         main_log[file] = exec_log
         if exec_log['status'] != 200:
             main_log["status"] = 500
-    return f'Files generation completed with status: {main_log["status"]}. {main_log}'
+    return main_log
 
 
 if __name__ == '__main__':
