@@ -1,6 +1,10 @@
 import pandas as pd
 from .base import BaseBuilder
 
+import sys
+sys.path.append('../')
+from basic_operations import convert_date_columns
+
 
 class TableBuilder(BaseBuilder):
     """
@@ -16,25 +20,14 @@ class TableBuilder(BaseBuilder):
 
     def __init__(self, df: pd.DataFrame) -> None:
         super().__init__()
-        self.df = df
+        self.df = convert_date_columns(df)
 
-    # note it's not changing memory usage, you can go ahead and assign 250 to all
-    @staticmethod
-    def round_up_to_nearest(value):
-        rounding_values = [10, 20, 30, 40, 50, 100, 150, 250]
-        rounded_value = min(rounding_values, key=lambda x: abs(x - value) if x > value else 1000)
-        if rounded_value > value:
-            return rounded_value 
-        else:
-            return value
-
-    def varchar_cols_length(self, offset: int = 10) -> dict:
+    def varchar_cols_length(self, default_chars: int = 255) -> dict:
         varchar_cols = {}
         for col in self.df.columns: 
             if self.df[col].dtype == object:
                 chars = self.df[col].fillna('').apply(lambda x: len(x)).max() 
-                chars = self.round_up_to_nearest(chars + offset)
-                varchar_cols[col] = chars
+                varchar_cols[col] = max(chars, default_chars)
         return varchar_cols
 
     def is_nullable(self, col: str) -> bool:
@@ -52,8 +45,11 @@ class TableBuilder(BaseBuilder):
 
     def data_type(self, col: str) -> str:
         dtype = self.df[col].dtype
+        print(f"{col}: {dtype}")
         if dtype == object:
             return 'varchar'
+        if dtype == 'datetime64[ns]':
+            return 'date'
         if dtype in ['int16', 'int32', 'int64']:
             return 'int'
         if dtype in ['float16', 'float32', 'float64']:
