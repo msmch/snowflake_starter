@@ -46,7 +46,7 @@ create role analyst;
 create role reports_reader;
 
 
--- grants to the roles
+-- grants to the roles - MAKE SURE THE INTEGRATIONS ARE ALREADY CREATED AT THIS STEP
 
 -- Developer - simple ownership role to the entire DB
 grant ownership on database core_db to role developer;
