@@ -3,7 +3,6 @@ import sys
 sys.path.append('../')
 from automation_scripts.orchestrator import Orchestrator
 from automation_scripts.file_operations import get_files
-from automation_scripts.mapping import BASE_DIR
 
 
 def get_data_path() -> str:
