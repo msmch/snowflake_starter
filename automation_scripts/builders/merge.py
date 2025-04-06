@@ -3,7 +3,7 @@ from .config import TRANSFORMED_SCHEMA
 
 import sys
 sys.path.append('../')
-from basic_operations import starting_row, get_primary_key, get_columns
+from utils.basic import starting_row, get_primary_key, get_columns
 
 
 class MergeBuilderError(Exception):

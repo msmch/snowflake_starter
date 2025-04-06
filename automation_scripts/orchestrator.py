@@ -10,7 +10,7 @@ from builders import (
     PipeBuilder, MergeBuilder, TaskBuilder, StreamBuilder,
     TableBuilder, StageBuilder
 )
-from file_operations import read_file, write_to_file
+from utils.file_related import read_file, write_to_file
 from mapping import BASE_DIR, TABLES_MAPPING
 
 
@@ -50,6 +50,7 @@ class Orchestrator:
 
     def __init__(self, data_path: str, file_name: str):
         self.logger = logging.getLogger(__name__)
+        self.logger.info(f"Working on file {file_name}.")
         self.data_path = data_path
         self.file_name = file_name
         self.full_path = path.join(data_path, file_name)
@@ -185,5 +186,6 @@ class Orchestrator:
         except Exception as e:
             exec_log['status'] = 500
             exec_log['errors'][task] = e
-    
+            
+        self.logger.info("File processing completed.\n")
         return exec_log
