@@ -3,8 +3,8 @@ from .config import NOTIFICATION_QUEUE
 
 import sys
 sys.path.append('../')
-from basic_operations import column_details, starting_row, table_name
-from file_operations import read_file
+from utils.basic import column_details, starting_row, table_name
+from utils.file_related import read_file
 
 
 class PipeBuilderError(Exception):

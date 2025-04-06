@@ -3,7 +3,7 @@ from .base import BaseBuilder
 
 import sys
 sys.path.append('../')
-from basic_operations import convert_date_columns
+from utils.basic import convert_date_columns
 
 
 class TableBuilder(BaseBuilder):

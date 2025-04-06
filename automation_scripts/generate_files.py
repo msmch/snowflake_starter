@@ -2,7 +2,7 @@ import os
 import sys
 sys.path.append('../')
 from automation_scripts.orchestrator import Orchestrator
-from automation_scripts.file_operations import get_files
+from automation_scripts.utils.file_related import get_files
 
 
 def get_data_path() -> str:

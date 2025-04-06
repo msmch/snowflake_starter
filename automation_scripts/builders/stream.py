@@ -2,7 +2,7 @@ from .base import BaseBuilder
 
 import sys
 sys.path.append('../')
-from basic_operations import use_db_schema
+from utils.basic import use_db_schema
 
 
 class StreamBuilder(BaseBuilder):
