@@ -1,10 +1,8 @@
-/* 
-The storage integration allowing snowflake to access data that is stored in the Azure Cloud. All blobs are allowed 
-in my dedicated container football-data. This way we give Snowflake control on one container only and it's not 
-able to interact with other objects in the storage account.
+/* The storage integration allows Snowflake to access data stored in Azure Blob Storage. 
+Only the football-data container is exposed, so Snowflake has access strictly to that container 
+and can't interact with anything else in the storage account. 
 */
 use role accountadmin;
-
 
 create storage integration azure_integration
 type = external_stage
@@ -13,5 +11,4 @@ enabled = true
 azure_tenant_id = 'TENANT_ID_GOES_HERE' -- make sure to copy paste the tenant ID 
 storage_allowed_locations = ('azure://msmchsnowflakestater.blob.core.windows.net/football-data');
 
--- then run the below and open AZURE_CONSENT_URL to authorize connection
-desc storage integration azure_integration;
+desc storage integration azure_integration;  -- open AZURE_CONSENT_URL and approve access
