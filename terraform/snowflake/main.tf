@@ -38,6 +38,14 @@ resource "snowflake_warehouse" "xs_dev" {
   auto_resume = true
 }
 
+
+resource "snowflake_warehouse" "xs_snowpark" {
+  name = "XS_SNOWPARK"
+  warehouse_size = "XSMALL"
+  auto_suspend = 60
+  auto_resume = true
+}
+
 # Database & Schemas
 resource "snowflake_database" "core_db" {
   name = "CORE_DB"
