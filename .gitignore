@@ -4,6 +4,8 @@
 terraform/.terraform/providers
 **/terraform.tfstate
 **/terraform.tfstate.backup
+terraform/snowflake/.terraform/providers/**
+terraform/azure/.terraform/providers/**
 
 data/
 private_key.p8
