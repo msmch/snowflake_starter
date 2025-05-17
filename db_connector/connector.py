@@ -1,8 +1,13 @@
+import logging
 import os
+
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
+from dotenv import load_dotenv
 from snowflake.snowpark import Session
 
+if os.getenv("ENV", "development") == "development":
+    load_dotenv()
 
 
 def get_private_key() -> bytes:
@@ -28,15 +33,26 @@ def get_pkb() -> bytes:
 
 
 def open_session():
-    # TODO: in full scope application the below should be stored in env variables
     connection_params = {
-        "account": "cluould-aj15446",
-        "user": "snowpark_user",
+        "account": os.getenv("SNOWFLAKE_ACCOUNT"),
+        "user": os.getenv("SNOWPARK_USER"),
         "private_key": get_pkb(),
-        "role": "developer",
-        "warehouse": "xs_snowpark",
-        "database": "core_db",
-        "schema": "staging"
+        "role": os.getenv("SNOWPARK_ROLE"),
+        "warehouse": os.getenv("SNOWPARK_WAREHOUSE"),
+        "database": os.getenv("SNOWPARK_DB"),
+        "schema": os.getenv("SNOWPARK_SCHEMA")
     }
     session = Session.builder.configs(connection_params).create()
     return session
+
+
+class SnowparkConnector:
+    def __init__(self):
+        self.logger = logging.getLogger(__name__)
+        self.session = open_session()
+
+    def __enter__(self):
+        return self.session
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.session.close()
