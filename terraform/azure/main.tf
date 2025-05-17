@@ -26,13 +26,13 @@ resource "azurerm_storage_container" "snowflake_starter_container" {
   container_access_type = "private"
 }
 
-# Dynamically upload all the files
-resource "azurerm_storage_blob" "snowflake_starter_blobs" {
-  for_each = fileset(var.SNOWFLAKE_STARTER_LOCAL_FILES_PATH, "*")
+# # Dynamically upload all the files
+# resource "azurerm_storage_blob" "snowflake_starter_blobs" {
+#   for_each = fileset(var.SNOWFLAKE_STARTER_LOCAL_FILES_PATH, "*")
 
-  name = each.value # keep the same filename
-  storage_account_name = azurerm_storage_account.snowflake_starter_storage.name
-  storage_container_name = azurerm_storage_container.snowflake_starter_container.name
-  type = "Block"
-  source = "${var.SNOWFLAKE_STARTER_LOCAL_FILES_PATH}/${each.value}"
-}
+#   name = each.value # keep the same filename
+#   storage_account_name = azurerm_storage_account.snowflake_starter_storage.name
+#   storage_container_name = azurerm_storage_container.snowflake_starter_container.name
+#   type = "Block"
+#   source = "${var.SNOWFLAKE_STARTER_LOCAL_FILES_PATH}/${each.value}"
+# }
