@@ -37,12 +37,13 @@ class PipeBuilder(BaseBuilder):
         self.sql_header += f"integration = '{integration_name.upper()}'\nas \n"
         self.stage = f'stg_{file_name}'
 
-    def add_row_to_substatements(self,  i: int, row: str) -> None:
+    def add_row_to_substatements(self,  i: int, row: str, date_format: str = 'YYYY-MM-DD') -> None:
         column_name, dtype = column_details(row)
         copy_line = f'{self.ident}{column_name},\n'
 
         if dtype == 'date':
-            from_line = f"{self.ident*2} to_date(left(stg.${i}, 10), 'YYYY-MM-DD'), {self.ident}-- {column_name}\n"
+            date_chars = len(date_format)
+            from_line = f"{self.ident*2} to_date(left(stg.${i}, {date_chars}), {date_format}), {self.ident}-- {column_name}\n"
         else:
             from_line = f'{self.ident*2} stg.${i}, {self.ident}-- {column_name}\n'
             
