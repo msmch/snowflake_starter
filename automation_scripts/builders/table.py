@@ -1,3 +1,4 @@
+import logging
 import pandas as pd
 from .base import BaseBuilder
 
@@ -20,6 +21,7 @@ class TableBuilder(BaseBuilder):
 
     def __init__(self, df: pd.DataFrame) -> None:
         super().__init__()
+        self.logger = logging.getLogger(__name__)
         self.df = convert_date_columns(df)
 
     def varchar_cols_length(self, default_chars: int = 255) -> dict:
@@ -45,7 +47,7 @@ class TableBuilder(BaseBuilder):
 
     def data_type(self, col: str) -> str:
         dtype = self.df[col].dtype
-        print(f"{col}: {dtype}")
+        self.logger.debug(f"     {col}: {dtype}")
         if dtype == object:
             return 'varchar'
         if dtype == 'datetime64[ns]':
@@ -69,6 +71,7 @@ class TableBuilder(BaseBuilder):
         cols_length = self.varchar_cols_length()
 
         sql = f'create table {table_name}(\n'
+        self.logger.debug("Analysing data types of the dataframe columns.")
         for col in self.df.columns:
             dtype = self.data_type(col)
             if dtype == 'varchar':
