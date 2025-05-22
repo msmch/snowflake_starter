@@ -1,8 +1,15 @@
 import os
 import sys
+
+from dotenv import load_dotenv
+
 sys.path.append('../')
 from automation_scripts.orchestrator import Orchestrator
 from automation_scripts.utils.file_related import get_files
+
+
+if os.getenv("ENVIRONMENT", "DEV") == "DEV":
+    load_dotenv()
 
 
 def get_data_path() -> str:
